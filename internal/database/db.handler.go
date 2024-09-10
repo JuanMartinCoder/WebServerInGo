@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"sync"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type DB struct {
@@ -17,8 +19,9 @@ type Chirp struct {
 	Body string `json:"body"`
 }
 type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password []byte `json:"password"`
 }
 
 type DBStructure struct {
@@ -69,18 +72,25 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
-func (db *DB) CreateUser(email string) (User, error) {
+func (db *DB) CreateUser(email string, pass string) (User, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return User{}, err
 	}
 
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte(pass), 14)
+
 	id := len(dbStructure.Users) + 1
 	user := User{
-		ID:    id,
-		Email: email,
+		ID:       id,
+		Email:    email,
+		Password: hashedPass,
 	}
-
+	for _, user := range dbStructure.Users {
+		if user.Email == email {
+			return User{}, errors.New("email already exists")
+		}
+	}
 	dbStructure.Users[id] = user
 
 	err = db.writeDB(dbStructure)
@@ -88,6 +98,26 @@ func (db *DB) CreateUser(email string) (User, error) {
 		return User{}, err
 	}
 	return user, nil
+}
+
+func (db *DB) CreateLogin(email string, pass string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+	userData := User{}
+	for _, user := range dbStructure.Users {
+		if user.Email == email {
+			err := bcrypt.CompareHashAndPassword(user.Password, []byte(pass))
+			if err != nil {
+				return User{}, errors.New("Password or Eamil doesn't match")
+			}
+			userData.ID = user.ID
+			userData.Email = user.Email
+			return userData, nil
+		}
+	}
+	return User{}, nil
 }
 
 func (db *DB) GetChirpById(id int) (Chirp, error) {

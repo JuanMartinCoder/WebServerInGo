@@ -55,6 +55,7 @@ func main() {
 	serMux.HandleFunc("GET /api/chirps", apiCfg.handleGetChirps)
 	serMux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handleGetChirpID)
 	serMux.HandleFunc("POST /api/users", apiCfg.handlePostUsers)
+	serMux.HandleFunc("POST /api/login", apiCfg.handleLogin)
 
 	server := &http.Server{
 		Addr:    ":8080",
