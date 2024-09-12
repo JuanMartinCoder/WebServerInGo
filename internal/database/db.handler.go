@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 
 	"golang.org/x/crypto/bcrypt"
@@ -93,6 +94,32 @@ func (db *DB) CreateUser(email string, pass string) (User, error) {
 	}
 	dbStructure.Users[id] = user
 
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+func (db *DB) UpdateUser(userId string, newEmail string, newPass string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte(newPass), 14)
+
+	userIdnew, err := strconv.Atoi(userId)
+	if err != nil {
+		return User{}, err
+	}
+
+	user := User{
+		ID:       userIdnew,
+		Email:    newEmail,
+		Password: hashedPass,
+	}
+
+	dbStructure.Users[userIdnew] = user
 	err = db.writeDB(dbStructure)
 	if err != nil {
 		return User{}, err

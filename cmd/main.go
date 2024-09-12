@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/JuanMartinCoder/WebServerInGo/internal/database"
+	"github.com/joho/godotenv"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
+	jwtSecret      string
 }
 
 func (c *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -33,6 +36,9 @@ func (c *apiConfig) handleReset(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Load environment variables
+	godotenv.Load("../.env")
+
 	db, err := database.NewDB("database.json")
 	if err != nil {
 		log.Fatal(err)
@@ -41,6 +47,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		DB:             db,
+		jwtSecret:      os.Getenv("JWT_SECRET"),
 	}
 	serMux := http.NewServeMux()
 	serMux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir("../ui/")))))
@@ -54,7 +61,9 @@ func main() {
 	serMux.HandleFunc("POST /api/chirps", apiCfg.handlePostChirp)
 	serMux.HandleFunc("GET /api/chirps", apiCfg.handleGetChirps)
 	serMux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handleGetChirpID)
+
 	serMux.HandleFunc("POST /api/users", apiCfg.handlePostUsers)
+	serMux.HandleFunc("PUT /api/users", apiCfg.handlePutUsers)
 	serMux.HandleFunc("POST /api/login", apiCfg.handleLogin)
 
 	server := &http.Server{
