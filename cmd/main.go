@@ -14,6 +14,7 @@ type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
 	jwtSecret      string
+	PolkaToken     string
 }
 
 func (c *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -48,6 +49,7 @@ func main() {
 		fileserverHits: 0,
 		DB:             db,
 		jwtSecret:      os.Getenv("JWT_SECRET"),
+		PolkaToken:     os.Getenv("POLKA_TOKEN"),
 	}
 	serMux := http.NewServeMux()
 	serMux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir("../ui/")))))
@@ -68,6 +70,8 @@ func main() {
 	serMux.HandleFunc("POST /api/login", apiCfg.handleLogin)
 	serMux.HandleFunc("POST /api/refresh", apiCfg.handlePostRefresh)
 	serMux.HandleFunc("POST /api/revoke", apiCfg.handlePostRevoke)
+
+	serMux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlePostPolkaWebhooks)
 
 	server := &http.Server{
 		Addr:    ":8080",
