@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
@@ -10,9 +9,10 @@ import (
 )
 
 type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
-	Token string `json:"token"`
+	ID           int    `json:"id"`
+	Email        string `json:"email"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlePostUsers(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,6 @@ func (cfg *apiConfig) handlePutUsers(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "Invalid Claims")
 		return
 	}
-	log.Println(userId)
 	decoder := json.NewDecoder(r.Body)
 	params := Parameters{}
 	err = decoder.Decode(&params)

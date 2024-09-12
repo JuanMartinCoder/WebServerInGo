@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,9 +26,16 @@ type User struct {
 	Password []byte `json:"password"`
 }
 
+type RefreshToken struct {
+	UserId       int       `json:"user_id"`
+	RefreshToken string    `json:"refresh_token"`
+	ExpiredAt    time.Time `json:"expired_at"`
+}
+
 type DBStructure struct {
-	Chrips map[int]Chirp `json:"chirps"`
-	Users  map[int]User  `json:"users"`
+	Chrips        map[int]Chirp           `json:"chirps"`
+	Users         map[int]User            `json:"users"`
+	RefreshTokens map[string]RefreshToken `json:"refresh_tokens"`
 }
 
 func NewDB(path string) (*DB, error) {
@@ -113,11 +121,13 @@ func (db *DB) UpdateUser(userId string, newEmail string, newPass string) (User, 
 		return User{}, err
 	}
 
-	user := User{
-		ID:       userIdnew,
-		Email:    newEmail,
-		Password: hashedPass,
+	user, ok := dbStructure.Users[userIdnew]
+	if !ok {
+		return User{}, errors.New("user not found")
 	}
+	user.ID = userIdnew
+	user.Email = newEmail
+	user.Password = hashedPass
 
 	dbStructure.Users[userIdnew] = user
 	err = db.writeDB(dbStructure)
@@ -125,6 +135,55 @@ func (db *DB) UpdateUser(userId string, newEmail string, newPass string) (User, 
 		return User{}, err
 	}
 	return user, nil
+}
+
+func (db *DB) SaveRefreshToken(userId int, refreshToken string) error {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	refresh := RefreshToken{
+		UserId:       userId,
+		RefreshToken: refreshToken,
+		ExpiredAt:    time.Now().Add(time.Hour),
+	}
+	dbStructure.RefreshTokens[refreshToken] = refresh
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *DB) GetUserByRefreshToken(refreshToken string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+	userId, ok := dbStructure.RefreshTokens[refreshToken]
+	if !ok {
+		return User{}, errors.New("refresh token not found")
+	}
+	user, ok := dbStructure.Users[userId.UserId]
+	if !ok {
+		return User{}, errors.New("user not found")
+	}
+	return user, nil
+}
+
+func (db *DB) RevokeRefreshToken(refreshToken string) error {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+	delete(dbStructure.RefreshTokens, refreshToken)
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *DB) CreateLogin(email string, pass string) (User, error) {
@@ -161,8 +220,9 @@ func (db *DB) GetChirpById(id int) (Chirp, error) {
 
 func (db *DB) createDB() error {
 	dbStructure := DBStructure{
-		Chrips: make(map[int]Chirp),
-		Users:  make(map[int]User),
+		Chrips:        make(map[int]Chirp),
+		Users:         make(map[int]User),
+		RefreshTokens: make(map[string]RefreshToken),
 	}
 	return db.writeDB(dbStructure)
 }
