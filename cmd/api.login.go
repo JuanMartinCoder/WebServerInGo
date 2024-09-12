@@ -1,14 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/JuanMartinCoder/WebServerInGo/internal/auth"
 )
 
 func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -32,27 +28,17 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Access Token
-	claim := jwt.RegisteredClaims{}
-	claim = jwt.RegisteredClaims{
-		Issuer:    "chirpy",
-		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(1 * time.Hour)),
-		Subject:   fmt.Sprintf("%d", user.ID),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
-	tokenString, err := token.SignedString([]byte(cfg.jwtSecret))
+	accesToken, err := auth.CreateAccessToken(user.ID, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't sign token")
 		return
 	}
 	// Refresh Token
-	b := make([]byte, 32)
-	_, err = rand.Read(b)
+	refreshToken, err := auth.CreateRefreshToken()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't generate random bytes")
 		return
 	}
-	refreshToken := hex.EncodeToString(b)
 
 	err = cfg.DB.SaveRefreshToken(user.ID, refreshToken)
 	if err != nil {
@@ -63,7 +49,7 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, User{
 		ID:           user.ID,
 		Email:        user.Email,
-		Token:        tokenString,
+		Token:        accesToken,
 		RefreshToken: refreshToken,
 	})
 }

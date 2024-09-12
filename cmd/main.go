@@ -61,6 +61,7 @@ func main() {
 	serMux.HandleFunc("POST /api/chirps", apiCfg.handlePostChirp)
 	serMux.HandleFunc("GET /api/chirps", apiCfg.handleGetChirps)
 	serMux.HandleFunc("GET /api/chirps/{chirpId}", apiCfg.handleGetChirpID)
+	serMux.HandleFunc("DELETE /api/chirps/{chirpId}", apiCfg.handleDeleteChirp)
 
 	serMux.HandleFunc("POST /api/users", apiCfg.handlePostUsers)
 	serMux.HandleFunc("PUT /api/users", apiCfg.handlePutUsers)

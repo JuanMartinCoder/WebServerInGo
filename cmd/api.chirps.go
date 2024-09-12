@@ -8,11 +8,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/JuanMartinCoder/WebServerInGo/internal/auth"
 )
 
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
+	AuthorId int    `json:"author_id"`
 }
 
 func (cfg *apiConfig) handleGetChirpID(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +60,21 @@ func (cfg *apiConfig) handlePostChirp(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 	}
 
+	authToken, err := auth.GetHeaderBearer(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't get auth token")
+		return
+	}
+
+	userId, err := auth.ValidateAccessToken(authToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate auth token")
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	chirData := parameters{}
-	err := decoder.Decode(&chirData)
+	err = decoder.Decode(&chirData)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
 		return
@@ -71,16 +86,45 @@ func (cfg *apiConfig) handlePostChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chirp, err := cfg.DB.CreateChirp(cleanedBody)
+	chirp, err := cfg.DB.CreateChirp(cleanedBody, userId)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp")
 		return
 	}
 
 	respondWithJSON(w, http.StatusCreated, Chirp{
-		ID:   chirp.ID,
-		Body: chirp.Body,
+		ID:       chirp.ID,
+		Body:     chirp.Body,
+		AuthorId: chirp.AuthorId,
 	})
+}
+
+func (cfg *apiConfig) handleDeleteChirp(w http.ResponseWriter, r *http.Request) {
+	path := r.PathValue("chirpId")
+	valueId, err := strconv.Atoi(path)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't parse chirp id")
+		return
+	}
+
+	authToken, err := auth.GetHeaderBearer(r)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get auth token")
+		return
+	}
+
+	userId, err := auth.ValidateAccessToken(authToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate auth token")
+	}
+
+	err = cfg.DB.DeleteChirp(valueId, userId)
+	if err != nil {
+		respondWithError(w, http.StatusForbidden, "Couldn't delete chirp")
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, nil)
 }
 
 func validateChirp(body string) (string, error) {

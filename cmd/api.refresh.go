@@ -1,21 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/JuanMartinCoder/WebServerInGo/internal/auth"
 )
 
 func (cfg *apiConfig) handlePostRefresh(w http.ResponseWriter, r *http.Request) {
 	type Response struct {
 		Token string `json:"token"`
 	}
-	headerAuth := r.Header.Get("Authorization")
-	authToken, ok := strings.CutPrefix(headerAuth, "Bearer ")
-	if !ok {
+	authToken, err := auth.GetHeaderBearer(r)
+	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "No token provided")
 		return
 	}
@@ -25,15 +21,7 @@ func (cfg *apiConfig) handlePostRefresh(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusUnauthorized, "Token not found")
 		return
 	}
-
-	claim := jwt.RegisteredClaims{
-		Subject:   fmt.Sprintf("%d", user.ID),
-		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		Issuer:    "chirpy",
-	}
-	tokenC := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
-	token, err := tokenC.SignedString([]byte(cfg.jwtSecret))
+	token, err := auth.CreateAccessToken(user.ID, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to sign token")
 		return

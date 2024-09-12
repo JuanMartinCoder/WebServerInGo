@@ -3,9 +3,8 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/JuanMartinCoder/WebServerInGo/internal/auth"
 )
 
 type User struct {
@@ -47,27 +46,13 @@ func (cfg *apiConfig) handlePutUsers(w http.ResponseWriter, r *http.Request) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-
-	headerAuth := r.Header.Get("Authorization")
-	authToken, ok := strings.CutPrefix(headerAuth, "Bearer ")
-	if !ok {
+	authToken, err := auth.GetHeaderBearer(r)
+	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "No token provided")
 		return
 	}
-	claim := jwt.RegisteredClaims{}
-	token, err := jwt.ParseWithClaims(authToken, &claim, func(token *jwt.Token) (interface{}, error) {
-		return []byte(cfg.jwtSecret), nil
-	})
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Invalid token")
-		return
-	}
-	claims := token.Claims
-	userId, err := claims.GetSubject()
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Invalid Claims")
-		return
-	}
+	userId, err := auth.ValidateAccessToken(authToken, cfg.jwtSecret)
+
 	decoder := json.NewDecoder(r.Body)
 	params := Parameters{}
 	err = decoder.Decode(&params)
