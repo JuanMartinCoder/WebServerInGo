@@ -67,6 +67,7 @@ func main() {
 
 	serMux.HandleFunc("POST /api/users", apiCfg.handlePostUsers)
 	serMux.HandleFunc("PUT /api/users", apiCfg.handlePutUsers)
+
 	serMux.HandleFunc("POST /api/login", apiCfg.handleLogin)
 	serMux.HandleFunc("POST /api/refresh", apiCfg.handlePostRefresh)
 	serMux.HandleFunc("POST /api/revoke", apiCfg.handlePostRevoke)

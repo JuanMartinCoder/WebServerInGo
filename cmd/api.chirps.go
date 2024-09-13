@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/JuanMartinCoder/WebServerInGo/internal/auth"
+	"github.com/JuanMartinCoder/WebServerInGo/internal/database"
 )
 
 type Chirp struct {
@@ -35,16 +36,31 @@ func (cfg *apiConfig) handleGetChirpID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
-	chirpsDb, err := cfg.DB.GetChirps()
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps")
-		return
+	s := r.URL.Query().Get("author_id")
+
+	chirpsDb := []database.Chirp{}
+	err := errors.New("Error")
+	if s == "" {
+		chirpsDb, err = cfg.DB.GetChirps()
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps")
+			return
+		}
+
+	} else {
+		chirpsDb, err = cfg.DB.GetChirpsByID(s)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Couldn't get chirps")
+			return
+		}
 	}
+
 	chirps := []Chirp{}
 	for _, dbchirp := range chirpsDb {
 		chirps = append(chirps, Chirp{
-			ID:   dbchirp.ID,
-			Body: dbchirp.Body,
+			ID:       dbchirp.ID,
+			Body:     dbchirp.Body,
+			AuthorId: dbchirp.AuthorId,
 		})
 	}
 
